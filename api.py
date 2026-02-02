@@ -1,10 +1,16 @@
 from flask import Flask, request, jsonify
+from seed_check import check_planting
 import os
-from seed_check import is_seed_planting
+import uuid
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.route("/", methods=["GET"])
+def health():
+    return "SproutingSeeds API is running 🌱"
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -12,15 +18,23 @@ def predict():
         return jsonify({"error": "No image uploaded"}), 400
 
     file = request.files["image"]
-    path = os.path.join(UPLOAD_FOLDER, file.filename)
+    filename = f"{uuid.uuid4().hex}.jpg"
+    path = os.path.join(UPLOAD_DIR, filename)
     file.save(path)
 
-    ok, message = is_seed_planting(path)
+    result = check_planting(path)
 
     os.remove(path)
 
+    message = (
+        "🌱 Seed planting detected!"
+        if result["planting"]
+        else "❌ No seed planting detected"
+    )
+
     return jsonify({
-        "success": ok,
+        "planting": result["planting"],
+        "detected_objects": result["objects"],
         "message": message
     })
 
